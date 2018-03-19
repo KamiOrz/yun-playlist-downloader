@@ -25,14 +25,14 @@ export default class BaseAdapter {
    * get detail
    */
 
-  getDetail($: CheerioAPI, url: string, quality: number) {
+  getDetail($: CheerioAPI, url: string, quality: number): Promise<RawSong[]> {
     throw new Error(NOT_IMPLEMENTED)
   }
 
-  getId(url: string) {
+  getId(url: string): string {
     const parsedUrl = urlparse(url)
     const parsedQuery = qsparse(parsedUrl.query)
-    const { id } = parsedQuery
+    const id = parsedQuery.id as string
     debug('id = %s', id)
     return id
   }

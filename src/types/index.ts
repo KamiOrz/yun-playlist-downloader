@@ -3,12 +3,14 @@ interface Artist {
 };
 
 export interface RawSong {
+  id: string,
   ar: Artist[];
   name: string;
   ajaxData: { url: string };
 }
 
 export interface Song {
+  [key: string]: any
   singer: string // song.ar[0].name
   songName: string // song.name
   url: string // song.ajaxData.url

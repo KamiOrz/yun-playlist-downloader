@@ -2,16 +2,16 @@ import path from 'path'
 import _ from 'lodash'
 import fs from 'fs-extra'
 import symbols from 'log-symbols'
-// import pretry from 'promise.retry'
+import pretry from 'promise.retry'
 import Debug from 'debug'
 import sanitize from 'sanitize-filename'
 import request from 'request'
 import requestPromise from 'request-promise'
 import { Song } from './types';
 import BaseAdapter from './adapter/base';
+import getPlayurl from './api/playurl'
 
 const debug = Debug('yun:index')
-const getPlayurl = require('./api/playurl')
 
 /**
  * 下载特殊headers
@@ -30,16 +30,20 @@ const rp = requestPromise.defaults({ headers })
  * page type
  */
 
-export const types = [
-  {
-    type: 'playlist',
-    typeText: '列表',
-  },
-  {
-    type: 'album',
-    typeText: '专辑',
-  },
-]
+export const types: {
+  [key: string]: string,
+  type: string,
+  typeText: string
+}[] = [
+    {
+      type: 'playlist',
+      typeText: '列表',
+    },
+    {
+      type: 'album',
+      typeText: '专辑',
+    },
+  ]
 
 /**
  * 获取html
@@ -173,7 +177,7 @@ export async function tryDownloadSong(
   const tryDownload = pretry(download, {
     times: maxTimes,
     timeout: timeout,
-    onerror: function (e, i) {
+    onerror(e: Error, i: number) {
       console.log(
         `${symbols.warning} ${song.index}/${totalLength}  ${i +
         1}次失败 ${filename}`
@@ -240,15 +244,15 @@ export function getTitle($: CheerioAPI, url: string) {
  * 获取歌曲
  */
 
-exports.getSongs = async function ($, url, quality) {
-  const adapter = exports.getAdapter(url)
+export async function getSongs($: CheerioAPI, url: string, quality: number): Promise<Song[]> {
+  const adapter = getAdapter(url)
 
   // 基本信息
   let songs = await adapter.getDetail($, url, quality)
 
   // 获取下载链接
   const ids = songs.map(s => s.id)
-  let json = await getPlayurl(ids, quality) // 0-29有链接, max 30? 没有链接都是下线的
+  let json: { url: string }[] = await getPlayurl(ids, quality)
   json = json.filter(s => s.url) // remove 版权保护没有链接的
 
   // 移除版权限制在json中没有数据的歌曲
@@ -276,31 +280,35 @@ exports.getSongs = async function ($, url, quality) {
 /**
  * 获取歌曲文件表示
  */
-exports.getFileName = (options: { format: string, song: Song, url: string, name: string }) => {
+
+export function getFileName(options: {
+  format: string,
+  song: Song,
+  url: string,
+  name: string
+}): string {
   let format = options.format
   const song = options.song
-  const typesItem = exports.getType(options.url)
-  const name = options.name // 专辑 or playlist 名称
-    // console.log(options);
+  const typesItem = getType(options.url)
+  const name = options.name; // 专辑 or playlist 名称
+  // console.log(options);
 
-    // 从 type 中取值, 先替换 `长的`
-    ;['typeText', 'type'].forEach(t => {
-      const val = sanitize(String(typesItem[t]))
-      format = format.replace(new RegExp(':' + t, 'ig'), val)
-    })
+  // 从 type 中取值, 先替换 `长的`
+  ['typeText', 'type'].forEach(t => {
+    const val = sanitize(String(typesItem[t]))
+    format = format.replace(new RegExp(':' + t, 'ig'), val)
+  });
 
-    // 从 `song` 中取值
-    ;['songName', 'singer', 'rawIndex', 'index', 'ext'].forEach(t => {
-      // t -> token
-      // rawIndex 为 number, sanitize(number) error
-      const val = sanitize(String(song[t]))
-      format = format.replace(new RegExp(':' + t, 'ig'), val)
-    })
+  // 从 `song` 中取值
+  ['songName', 'singer', 'rawIndex', 'index', 'ext'].forEach(t => {
+    // t -> token
+    // rawIndex 为 number, sanitize(number) error
+    const val = sanitize(String(song[t]))
+    format = format.replace(new RegExp(':' + t, 'ig'), val)
+  });
 
   // name
   format = format.replace(new RegExp(':name', 'ig'), name)
 
   return format
 }
-
-var x: sanitize.Options
